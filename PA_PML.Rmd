@@ -1,0 +1,76 @@
+---
+output: 
+  html_document:
+      keep_md: true
+---
+
+## Predicting 'how well' is an exercise done !
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+In this analysis, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The data is used to predict how well the exercise is done for a test set.
+
+## Data Retrieval
+
+The data is downloaded from the URLs and is in two files, namely the training set and the test set.
+The appropriate library is loaded.
+
+```{r, message=FALSE, warning = FALSE}
+library(caret)
+library(randomForest)
+URL1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URL2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url=URL1, destfile="training.csv")
+download.file(url=URL2, destfile="testing.csv")
+```
+## Creating Tidy Dataset
+
+The next step is to read the .csv files and create tidy data frames for further processing. The NA strings are assigned and used to remove incomplete data. Also, the near zero variance predictors are removed. Finally, the columns which won't be used for predictions are removed from the data frame.
+
+```{r}
+training <- read.csv("training.csv",na.strings = c("", NA))
+training <- training[,(colSums(is.na(training))==0)]
+zerovar <- nearZeroVar(training,saveMetrics=TRUE)
+training <- training[,!zerovar$nzv]
+training<-subset(training[,-(1:7)])
+
+testing <- read.csv("testing.csv",na.strings = c("", NA))
+testing <- testing[,(colSums(is.na(testing))==0)]
+testing <- testing[,!zerovar$nzv]
+testing<-subset(testing[,-(1:7)])
+
+str(training)
+```
+
+## Creating Partition
+
+The training set is used to create partition. 60% of the training data is used to train and the remaining 40% is used to validate. The 'classe' column is the outcome and other columns are the predictors.
+
+```{r}
+
+train <- createDataPartition(y=training$classe, p=0.6, list=FALSE)
+training <- training[train,]
+validation <- training[-train,]
+```
+
+## Random Forest Model
+
+A random forest is used to fit a model on the training dataset. A cross-validation method is used with 3 folds. The model is then used on the validation dataset and a confusion matrix is created to see the correctness of the prediction.
+
+```{r}
+set.seed(111)
+fit <- train(classe ~ ., method = "rf", data = training, trControl = trainControl(method = "cv", number = 3))
+pred_val <- predict(fit, newdata=validation)
+confusionMatrix(pred_val,validation$classe)
+
+```
+
+The result shows that this model is providing a very good fit and is correctly predicting the validation data.
+
+## Predicting Test data
+
+The prediction model is used for the test dataset and the results are displayed.
+
+```{r}
+pred_test <- predict(fit, newdata=testing)
+pred_test
+```
